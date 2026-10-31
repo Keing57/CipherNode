@@ -23,7 +23,7 @@ class ChatApp:
         self.port_entry.insert(0, "5000")
         self.port_entry.pack(side=tk.LEFT, padx=(0, 10))
 
-        self.connect_btn = tk.Button(top_frame, text="Connect")
+        self.connect_btn = tk.Button(top_frame, text="Connect", command=self.start_connecting)
         self.connect_btn.pack(side=tk.LEFT, padx=(0, 5))
 
         self.host_btn = tk.Button(top_frame, text="Host", command=self.start_hosting)
@@ -46,23 +46,45 @@ class ChatApp:
         self.send_btn = tk.Button(bottom_frame, text="Send", width=10)
         self.send_btn.pack(side=tk.LEFT)
 
-    def start_hosting(self):
+    def get_host_port(self):
         host = self.ip_entry.get()
         port_str = self.port_entry.get()
         if not port_str.isdigit():
             messagebox.showerror("Error", "Port must be a number")
-            return
-        port = int(port_str)
+            return None, None
+        return host, int(port_str)
+
+    def start_hosting(self):
+        host, port = self.get_host_port()
+        if not host or not port: return
         
         self.host_btn.config(state=tk.DISABLED)
         self.connect_btn.config(state=tk.DISABLED)
         self.log_message(f"Waiting for connection on {host}:{port}...")
         
-        self.node.start_hosting(host, port, self.on_connected)
+        self.node.start_hosting(host, port, self.on_connected, self.on_error)
+
+    def start_connecting(self):
+        host, port = self.get_host_port()
+        if not host or not port: return
+        
+        self.host_btn.config(state=tk.DISABLED)
+        self.connect_btn.config(state=tk.DISABLED)
+        self.log_message(f"Connecting to {host}:{port}...")
+        
+        self.node.connect_to_host(host, port, self.on_connected, self.on_error)
 
     def on_connected(self):
-        # Using root.after to safely update GUI from another thread
         self.root.after(0, lambda: self.log_message(f"Connected to {self.node.address}"))
+
+    def on_error(self, err_msg):
+        self.root.after(0, lambda: self.reset_buttons())
+        self.root.after(0, lambda: messagebox.showerror("Connection Error", err_msg))
+        self.root.after(0, lambda: self.log_message(f"Error: {err_msg}"))
+
+    def reset_buttons(self):
+        self.host_btn.config(state=tk.NORMAL)
+        self.connect_btn.config(state=tk.NORMAL)
 
     def log_message(self, message):
         self.chat_text.config(state=tk.NORMAL)
