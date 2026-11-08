@@ -42,8 +42,9 @@ class ChatApp:
 
         self.msg_entry = tk.Entry(bottom_frame)
         self.msg_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
+        self.msg_entry.bind("<Return>", lambda event: self.send_message())
 
-        self.send_btn = tk.Button(bottom_frame, text="Send", width=10)
+        self.send_btn = tk.Button(bottom_frame, text="Send", width=10, command=self.send_message)
         self.send_btn.pack(side=tk.LEFT)
 
     def get_host_port(self):
@@ -62,7 +63,7 @@ class ChatApp:
         self.connect_btn.config(state=tk.DISABLED)
         self.log_message(f"Waiting for connection on {host}:{port}...")
         
-        self.node.start_hosting(host, port, self.on_connected, self.on_error)
+        self.node.start_hosting(host, port, self.on_connected, self.on_error, self.on_message_received, self.on_disconnected)
 
     def start_connecting(self):
         host, port = self.get_host_port()
@@ -72,7 +73,7 @@ class ChatApp:
         self.connect_btn.config(state=tk.DISABLED)
         self.log_message(f"Connecting to {host}:{port}...")
         
-        self.node.connect_to_host(host, port, self.on_connected, self.on_error)
+        self.node.connect_to_host(host, port, self.on_connected, self.on_error, self.on_message_received, self.on_disconnected)
 
     def on_connected(self):
         self.root.after(0, lambda: self.log_message(f"Connected to {self.node.address}"))
@@ -81,6 +82,22 @@ class ChatApp:
         self.root.after(0, lambda: self.reset_buttons())
         self.root.after(0, lambda: messagebox.showerror("Connection Error", err_msg))
         self.root.after(0, lambda: self.log_message(f"Error: {err_msg}"))
+        
+    def on_disconnected(self):
+        self.root.after(0, lambda: self.reset_buttons())
+        self.root.after(0, lambda: self.log_message("Disconnected."))
+
+    def on_message_received(self, message):
+        self.root.after(0, lambda: self.log_message(f"Peer: {message}"))
+
+    def send_message(self):
+        msg = self.msg_entry.get()
+        if msg and self.node.connection:
+            if self.node.send_message(msg):
+                self.log_message(f"Me: {msg}")
+                self.msg_entry.delete(0, tk.END)
+            else:
+                messagebox.showerror("Error", "Failed to send message")
 
     def reset_buttons(self):
         self.host_btn.config(state=tk.NORMAL)
