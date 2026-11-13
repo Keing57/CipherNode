@@ -40,11 +40,11 @@ class ChatApp:
         bottom_frame = tk.Frame(root)
         bottom_frame.pack(padx=10, pady=(0, 10), fill=tk.X)
 
-        self.msg_entry = tk.Entry(bottom_frame)
+        self.msg_entry = tk.Entry(bottom_frame, state=tk.DISABLED)
         self.msg_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
         self.msg_entry.bind("<Return>", lambda event: self.send_message())
 
-        self.send_btn = tk.Button(bottom_frame, text="Send", width=10, command=self.send_message)
+        self.send_btn = tk.Button(bottom_frame, text="Send", width=10, command=self.send_message, state=tk.DISABLED)
         self.send_btn.pack(side=tk.LEFT)
 
     def get_host_port(self):
@@ -76,7 +76,14 @@ class ChatApp:
         self.node.connect_to_host(host, port, self.on_connected, self.on_error, self.on_message_received, self.on_disconnected)
 
     def on_connected(self):
+        self.root.after(0, lambda: self.enable_chat_input())
         self.root.after(0, lambda: self.log_message(f"Connected to {self.node.address}"))
+
+    def enable_chat_input(self):
+        self.msg_entry.config(state=tk.NORMAL)
+        self.send_btn.config(state=tk.NORMAL)
+        self.host_btn.config(state=tk.DISABLED)
+        self.connect_btn.config(state=tk.DISABLED)
 
     def on_error(self, err_msg):
         self.root.after(0, lambda: self.reset_buttons())
@@ -91,6 +98,9 @@ class ChatApp:
         self.root.after(0, lambda: self.log_message(f"Peer: {message}"))
 
     def send_message(self):
+        # Even if enter is pressed, check if entry is disabled
+        if self.msg_entry['state'] == tk.DISABLED: return
+        
         msg = self.msg_entry.get()
         if msg and self.node.connection:
             if self.node.send_message(msg):
@@ -102,6 +112,8 @@ class ChatApp:
     def reset_buttons(self):
         self.host_btn.config(state=tk.NORMAL)
         self.connect_btn.config(state=tk.NORMAL)
+        self.msg_entry.config(state=tk.DISABLED)
+        self.send_btn.config(state=tk.DISABLED)
 
     def log_message(self, message):
         self.chat_text.config(state=tk.NORMAL)
