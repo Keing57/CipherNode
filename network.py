@@ -52,17 +52,19 @@ class P2PNode:
                 try:
                     data = self.connection.recv(1024)
                     if not data:
-                        break # Connection closed
+                        # Empty data means the other side closed the connection cleanly
+                        break
                     if on_message_callback:
                         on_message_callback(data.decode('utf-8'))
+                except ConnectionResetError:
+                    print("Connection reset by peer.")
+                    break
                 except Exception as e:
                     print(f"Receive error: {e}")
                     break
             
             self.running = False
-            if self.connection:
-                self.connection.close()
-                self.connection = None
+            self.close_connection()
             if on_disconnect_callback:
                 on_disconnect_callback()
 
@@ -74,7 +76,27 @@ class P2PNode:
             try:
                 self.connection.sendall(message.encode('utf-8'))
                 return True
+            except ConnectionResetError:
+                print("Send error: Connection reset by peer.")
+                self.running = False
+                self.close_connection()
             except Exception as e:
                 print(f"Send error: {e}")
-                return False
+                self.running = False
+                self.close_connection()
         return False
+
+    def close_connection(self):
+        if self.connection:
+            try:
+                self.connection.close()
+            except:
+                pass
+            self.connection = None
+        if self.server_socket:
+            try:
+                self.server_socket.close()
+            except:
+                pass
+            self.server_socket = None
+        self.running = False

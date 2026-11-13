@@ -85,7 +85,7 @@ class ChatApp:
         
     def on_disconnected(self):
         self.root.after(0, lambda: self.reset_buttons())
-        self.root.after(0, lambda: self.log_message("Disconnected."))
+        self.root.after(0, lambda: self.log_message("Connection Lost"))
 
     def on_message_received(self, message):
         self.root.after(0, lambda: self.log_message(f"Peer: {message}"))
@@ -97,7 +97,7 @@ class ChatApp:
                 self.log_message(f"Me: {msg}")
                 self.msg_entry.delete(0, tk.END)
             else:
-                messagebox.showerror("Error", "Failed to send message")
+                self.log_message("Failed to send message.")
 
     def reset_buttons(self):
         self.host_btn.config(state=tk.NORMAL)
