@@ -61,7 +61,7 @@ class ChatApp:
         
         self.host_btn.config(state=tk.DISABLED)
         self.connect_btn.config(state=tk.DISABLED)
-        self.log_message(f"Waiting for connection on {host}:{port}...")
+        self.log_message(f"[System] Waiting for connection on {host}:{port}...")
         
         self.node.start_hosting(host, port, self.on_connected, self.on_error, self.on_message_received, self.on_disconnected)
 
@@ -71,13 +71,13 @@ class ChatApp:
         
         self.host_btn.config(state=tk.DISABLED)
         self.connect_btn.config(state=tk.DISABLED)
-        self.log_message(f"Connecting to {host}:{port}...")
+        self.log_message(f"[System] Connecting to {host}:{port}...")
         
         self.node.connect_to_host(host, port, self.on_connected, self.on_error, self.on_message_received, self.on_disconnected)
 
     def on_connected(self):
         self.root.after(0, lambda: self.enable_chat_input())
-        self.root.after(0, lambda: self.log_message(f"Connected to {self.node.address}"))
+        self.root.after(0, lambda: self.log_message(f"[System] Connected to {self.node.address}"))
 
     def enable_chat_input(self):
         self.msg_entry.config(state=tk.NORMAL)
@@ -88,14 +88,14 @@ class ChatApp:
     def on_error(self, err_msg):
         self.root.after(0, lambda: self.reset_buttons())
         self.root.after(0, lambda: messagebox.showerror("Connection Error", err_msg))
-        self.root.after(0, lambda: self.log_message(f"Error: {err_msg}"))
+        self.root.after(0, lambda: self.log_message(f"[System] Error: {err_msg}"))
         
     def on_disconnected(self):
         self.root.after(0, lambda: self.reset_buttons())
-        self.root.after(0, lambda: self.log_message("Connection Lost"))
+        self.root.after(0, lambda: self.log_message("[System] Connection Lost"))
 
     def on_message_received(self, message):
-        self.root.after(0, lambda: self.log_message(f"Peer: {message}"))
+        self.root.after(0, lambda: self.log_message(f"[Peer] {message}"))
 
     def send_message(self):
         # Even if enter is pressed, check if entry is disabled
@@ -104,10 +104,10 @@ class ChatApp:
         msg = self.msg_entry.get()
         if msg and self.node.connection:
             if self.node.send_message(msg):
-                self.log_message(f"Me: {msg}")
+                self.log_message(f"[You] {msg}")
                 self.msg_entry.delete(0, tk.END)
             else:
-                self.log_message("Failed to send message.")
+                self.log_message("[System] Failed to send message.")
 
     def reset_buttons(self):
         self.host_btn.config(state=tk.NORMAL)
