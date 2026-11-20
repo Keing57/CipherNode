@@ -7,7 +7,14 @@ class ChatApp:
         self.root = root
         self.root.title("P2P Chat")
         self.root.geometry("600x500")
-        self.node = P2PNode()
+        
+        # Initialize network node with callbacks to strict separation
+        self.node = P2PNode(
+            on_connected=self.on_connected,
+            on_disconnected=self.on_disconnected,
+            on_message=self.on_message_received,
+            on_error=self.on_error
+        )
 
         # Top Frame for Connection
         top_frame = tk.Frame(root)
@@ -63,7 +70,7 @@ class ChatApp:
         self.connect_btn.config(state=tk.DISABLED)
         self.log_message(f"[System] Waiting for connection on {host}:{port}...")
         
-        self.node.start_hosting(host, port, self.on_connected, self.on_error, self.on_message_received, self.on_disconnected)
+        self.node.start_hosting(host, port)
 
     def start_connecting(self):
         host, port = self.get_host_port()
@@ -73,17 +80,12 @@ class ChatApp:
         self.connect_btn.config(state=tk.DISABLED)
         self.log_message(f"[System] Connecting to {host}:{port}...")
         
-        self.node.connect_to_host(host, port, self.on_connected, self.on_error, self.on_message_received, self.on_disconnected)
+        self.node.connect_to_host(host, port)
 
+    # --- Callbacks ---
     def on_connected(self):
         self.root.after(0, lambda: self.enable_chat_input())
         self.root.after(0, lambda: self.log_message(f"[System] Connected to {self.node.address}"))
-
-    def enable_chat_input(self):
-        self.msg_entry.config(state=tk.NORMAL)
-        self.send_btn.config(state=tk.NORMAL)
-        self.host_btn.config(state=tk.DISABLED)
-        self.connect_btn.config(state=tk.DISABLED)
 
     def on_error(self, err_msg):
         self.root.after(0, lambda: self.reset_buttons())
@@ -96,9 +98,15 @@ class ChatApp:
 
     def on_message_received(self, message):
         self.root.after(0, lambda: self.log_message(f"[Peer] {message}"))
+    # -----------------
+
+    def enable_chat_input(self):
+        self.msg_entry.config(state=tk.NORMAL)
+        self.send_btn.config(state=tk.NORMAL)
+        self.host_btn.config(state=tk.DISABLED)
+        self.connect_btn.config(state=tk.DISABLED)
 
     def send_message(self):
-        # Even if enter is pressed, check if entry is disabled
         if self.msg_entry['state'] == tk.DISABLED: return
         
         msg = self.msg_entry.get()
