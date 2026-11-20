@@ -1,5 +1,6 @@
 import socket
 import threading
+from crypto import generate_rsa_key_pair
 
 class P2PNode:
     def __init__(self, on_connected=None, on_disconnected=None, on_message=None, on_error=None):
@@ -14,6 +15,10 @@ class P2PNode:
         self.on_disconnected = on_disconnected
         self.on_message = on_message
         self.on_error = on_error
+        
+        # Crypto
+        self.private_key, self.public_key = generate_rsa_key_pair()
+        self.peer_public_key = None
 
     def start_hosting(self, host, port):
         def host_thread():
