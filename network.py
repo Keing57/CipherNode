@@ -1,6 +1,6 @@
 import socket
 import threading
-from crypto import generate_rsa_key_pair
+from crypto import generate_rsa_key_pair, serialize_public_key, deserialize_public_key
 
 class P2PNode:
     def __init__(self, on_connected=None, on_disconnected=None, on_message=None, on_error=None):
@@ -20,6 +20,10 @@ class P2PNode:
         self.private_key, self.public_key = generate_rsa_key_pair()
         self.peer_public_key = None
 
+    def _exchange_keys(self):
+        pem_key = serialize_public_key(self.public_key)
+        self.connection.sendall(pem_key)
+
     def start_hosting(self, host, port):
         def host_thread():
             try:
@@ -28,10 +32,12 @@ class P2PNode:
                 self.server_socket.listen(1)
                 
                 self.connection, self.address = self.server_socket.accept()
+                
+                self._exchange_keys()
+                self.start_receiving()
+                
                 if self.on_connected:
                     self.on_connected()
-                
-                self.start_receiving()
             except Exception as e:
                 if self.on_error:
                     self.on_error(str(e))
@@ -45,10 +51,12 @@ class P2PNode:
                 self.connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self.connection.connect((host, port))
                 self.address = (host, port)
+                
+                self._exchange_keys()
+                self.start_receiving()
+                
                 if self.on_connected:
                     self.on_connected()
-                
-                self.start_receiving()
             except Exception as e:
                 if self.on_error:
                     self.on_error(str(e))
@@ -61,9 +69,19 @@ class P2PNode:
         def receive_loop():
             while self.running:
                 try:
-                    data = self.connection.recv(1024)
+                    data = self.connection.recv(4096)
                     if not data:
                         break
+                    
+                    # Assume first message is the public key if we don't have one yet
+                    if self.peer_public_key is None:
+                        try:
+                            self.peer_public_key = deserialize_public_key(data)
+                            print("Exchanged public keys successfully.")
+                            continue
+                        except Exception as e:
+                            print(f"Failed to deserialize public key: {e}")
+                    
                     if self.on_message:
                         self.on_message(data.decode('utf-8'))
                 except ConnectionResetError:
@@ -110,3 +128,4 @@ class P2PNode:
                 pass
             self.server_socket = None
         self.running = False
+        self.peer_public_key = None
