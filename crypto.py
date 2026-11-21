@@ -1,3 +1,4 @@
+import os
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
 
@@ -20,3 +21,7 @@ def serialize_public_key(public_key):
 def deserialize_public_key(pem_bytes):
     """Deserializes PEM formatted public key."""
     return serialization.load_pem_public_key(pem_bytes)
+
+def generate_aes_key():
+    """Generates a 256-bit (32 bytes) AES symmetric key."""
+    return os.urandom(32)
