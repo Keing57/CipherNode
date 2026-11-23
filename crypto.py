@@ -1,6 +1,6 @@
 import os
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives import serialization, hashes
 
 def generate_rsa_key_pair():
     """Generates a 2048-bit RSA private and public key pair."""
@@ -25,3 +25,25 @@ def deserialize_public_key(pem_bytes):
 def generate_aes_key():
     """Generates a 256-bit (32 bytes) AES symmetric key."""
     return os.urandom(32)
+
+def rsa_encrypt(public_key, data):
+    """Encrypts data using RSA public key."""
+    return public_key.encrypt(
+        data,
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None
+        )
+    )
+
+def rsa_decrypt(private_key, ciphertext):
+    """Decrypts ciphertext using RSA private key."""
+    return private_key.decrypt(
+        ciphertext,
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None
+        )
+    )

@@ -1,6 +1,9 @@
 import socket
 import threading
-from crypto import generate_rsa_key_pair, serialize_public_key, deserialize_public_key
+from crypto import (
+    generate_rsa_key_pair, serialize_public_key, deserialize_public_key,
+    generate_aes_key, rsa_encrypt, rsa_decrypt
+)
 
 class P2PNode:
     def __init__(self, on_connected=None, on_disconnected=None, on_message=None, on_error=None):
@@ -9,6 +12,7 @@ class P2PNode:
         self.address = None
         self.receive_thread = None
         self.running = False
+        self.is_host = False
         
         # Callbacks
         self.on_connected = on_connected
@@ -19,12 +23,34 @@ class P2PNode:
         # Crypto
         self.private_key, self.public_key = generate_rsa_key_pair()
         self.peer_public_key = None
+        self.aes_key = None
 
-    def _exchange_keys(self):
-        pem_key = serialize_public_key(self.public_key)
-        self.connection.sendall(pem_key)
+    def _handshake(self):
+        # Sequential handshake to establish keys securely
+        if self.is_host:
+            # 1. Receive client's public key
+            client_pk_bytes = self.connection.recv(1024)
+            self.peer_public_key = deserialize_public_key(client_pk_bytes)
+            # 2. Send our public key
+            self.connection.sendall(serialize_public_key(self.public_key))
+            # 3. Receive encrypted AES key (256 bytes for RSA-2048)
+            encrypted_aes = self.connection.recv(1024)
+            self.aes_key = rsa_decrypt(self.private_key, encrypted_aes)
+            print("Handshake complete (Host). AES key established.")
+        else:
+            # 1. Send our public key
+            self.connection.sendall(serialize_public_key(self.public_key))
+            # 2. Receive host's public key
+            host_pk_bytes = self.connection.recv(1024)
+            self.peer_public_key = deserialize_public_key(host_pk_bytes)
+            # 3. Generate AES key, encrypt with host's PK, send
+            self.aes_key = generate_aes_key()
+            encrypted_aes = rsa_encrypt(self.peer_public_key, self.aes_key)
+            self.connection.sendall(encrypted_aes)
+            print("Handshake complete (Client). AES key established.")
 
     def start_hosting(self, host, port):
+        self.is_host = True
         def host_thread():
             try:
                 self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -33,7 +59,7 @@ class P2PNode:
                 
                 self.connection, self.address = self.server_socket.accept()
                 
-                self._exchange_keys()
+                self._handshake()
                 self.start_receiving()
                 
                 if self.on_connected:
@@ -46,13 +72,14 @@ class P2PNode:
         threading.Thread(target=host_thread, daemon=True).start()
 
     def connect_to_host(self, host, port):
+        self.is_host = False
         def connect_thread():
             try:
                 self.connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self.connection.connect((host, port))
                 self.address = (host, port)
                 
-                self._exchange_keys()
+                self._handshake()
                 self.start_receiving()
                 
                 if self.on_connected:
@@ -72,15 +99,6 @@ class P2PNode:
                     data = self.connection.recv(4096)
                     if not data:
                         break
-                    
-                    # Assume first message is the public key if we don't have one yet
-                    if self.peer_public_key is None:
-                        try:
-                            self.peer_public_key = deserialize_public_key(data)
-                            print("Exchanged public keys successfully.")
-                            continue
-                        except Exception as e:
-                            print(f"Failed to deserialize public key: {e}")
                     
                     if self.on_message:
                         self.on_message(data.decode('utf-8'))
@@ -129,3 +147,4 @@ class P2PNode:
             self.server_socket = None
         self.running = False
         self.peer_public_key = None
+        self.aes_key = None
