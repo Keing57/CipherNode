@@ -1,6 +1,7 @@
 import os
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import serialization, hashes
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 def generate_rsa_key_pair():
     """Generates a 2048-bit RSA private and public key pair."""
@@ -24,7 +25,7 @@ def deserialize_public_key(pem_bytes):
 
 def generate_aes_key():
     """Generates a 256-bit (32 bytes) AES symmetric key."""
-    return os.urandom(32)
+    return AESGCM.generate_key(bit_length=256)
 
 def rsa_encrypt(public_key, data):
     """Encrypts data using RSA public key."""
@@ -47,3 +48,18 @@ def rsa_decrypt(private_key, ciphertext):
             label=None
         )
     )
+
+def aes_encrypt(key, plaintext):
+    """Encrypts plaintext using AES-GCM and prepends the nonce."""
+    aesgcm = AESGCM(key)
+    nonce = os.urandom(12)
+    ciphertext = aesgcm.encrypt(nonce, plaintext, None)
+    return nonce + ciphertext
+
+def aes_decrypt(key, data):
+    """Extracts nonce and decrypts ciphertext using AES-GCM."""
+    nonce = data[:12]
+    ciphertext = data[12:]
+    aesgcm = AESGCM(key)
+    plaintext = aesgcm.decrypt(nonce, ciphertext, None)
+    return plaintext

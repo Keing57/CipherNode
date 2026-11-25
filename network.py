@@ -2,7 +2,7 @@ import socket
 import threading
 from crypto import (
     generate_rsa_key_pair, serialize_public_key, deserialize_public_key,
-    generate_aes_key, rsa_encrypt, rsa_decrypt
+    generate_aes_key, rsa_encrypt, rsa_decrypt, aes_encrypt, aes_decrypt
 )
 
 class P2PNode:
@@ -100,8 +100,13 @@ class P2PNode:
                     if not data:
                         break
                     
-                    if self.on_message:
-                        self.on_message(data.decode('utf-8'))
+                    if self.on_message and self.aes_key:
+                        try:
+                            # Decrypt incoming message
+                            plaintext = aes_decrypt(self.aes_key, data)
+                            self.on_message(plaintext.decode('utf-8'))
+                        except Exception as crypto_err:
+                            print(f"Decryption error: {crypto_err}")
                 except ConnectionResetError:
                     print("Connection reset by peer.")
                     break
@@ -118,9 +123,11 @@ class P2PNode:
         self.receive_thread.start()
 
     def send_message(self, message):
-        if self.connection and self.running:
+        if self.connection and self.running and self.aes_key:
             try:
-                self.connection.sendall(message.encode('utf-8'))
+                # Encrypt message before sending
+                ciphertext = aes_encrypt(self.aes_key, message.encode('utf-8'))
+                self.connection.sendall(ciphertext)
                 return True
             except ConnectionResetError:
                 print("Send error: Connection reset by peer.")
