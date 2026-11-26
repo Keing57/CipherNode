@@ -102,11 +102,20 @@ class P2PNode:
                     
                     if self.on_message and self.aes_key:
                         try:
-                            # Decrypt incoming message
-                            plaintext = aes_decrypt(self.aes_key, data)
-                            self.on_message(plaintext.decode('utf-8'))
+                            parts = data.split(b'|', 1)
+                            if len(parts) == 2:
+                                header_bytes, payload = parts
+                                header = header_bytes.decode('utf-8')
+                                
+                                if header == 'MSG':
+                                    plaintext = aes_decrypt(self.aes_key, payload)
+                                    self.on_message(plaintext.decode('utf-8'))
+                                else:
+                                    print(f"Unknown packet header: {header}")
+                            else:
+                                print("Invalid packet format received (missing '|' separator).")
                         except Exception as crypto_err:
-                            print(f"Decryption error: {crypto_err}")
+                            print(f"Packet processing error: {crypto_err}")
                 except ConnectionResetError:
                     print("Connection reset by peer.")
                     break
@@ -125,9 +134,11 @@ class P2PNode:
     def send_message(self, message):
         if self.connection and self.running and self.aes_key:
             try:
-                # Encrypt message before sending
+                # Encrypt message
                 ciphertext = aes_encrypt(self.aes_key, message.encode('utf-8'))
-                self.connection.sendall(ciphertext)
+                # Create custom packet: MSG|ciphertext
+                packet = b'MSG|' + ciphertext
+                self.connection.sendall(packet)
                 return True
             except ConnectionResetError:
                 print("Send error: Connection reset by peer.")
