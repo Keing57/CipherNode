@@ -6,7 +6,7 @@ class ChatApp:
     def __init__(self, root):
         self.root = root
         self.root.title("P2P Chat")
-        self.root.geometry("600x500")
+        self.root.geometry("650x500") # Increased width slightly for the label
         
         # Initialize network node with callbacks to strict separation
         self.node = P2PNode(
@@ -35,6 +35,10 @@ class ChatApp:
 
         self.host_btn = tk.Button(top_frame, text="Host", command=self.start_hosting)
         self.host_btn.pack(side=tk.LEFT)
+
+        # Secure Connection Status Label
+        self.status_label = tk.Label(top_frame, text="Connection: Disconnected", fg="red", font=("Arial", 10, "bold"))
+        self.status_label.pack(side=tk.RIGHT, padx=(10, 0))
 
         # Middle Frame for Chat
         chat_frame = tk.Frame(root)
@@ -68,6 +72,7 @@ class ChatApp:
         
         self.host_btn.config(state=tk.DISABLED)
         self.connect_btn.config(state=tk.DISABLED)
+        self.update_status("Waiting...", "orange")
         self.log_message(f"[System] Waiting for connection on {host}:{port}...")
         
         self.node.start_hosting(host, port)
@@ -78,22 +83,29 @@ class ChatApp:
         
         self.host_btn.config(state=tk.DISABLED)
         self.connect_btn.config(state=tk.DISABLED)
+        self.update_status("Connecting...", "orange")
         self.log_message(f"[System] Connecting to {host}:{port}...")
         
         self.node.connect_to_host(host, port)
 
+    def update_status(self, text, color):
+        self.status_label.config(text=f"Connection: {text}", fg=color)
+
     # --- Callbacks ---
     def on_connected(self):
         self.root.after(0, lambda: self.enable_chat_input())
-        self.root.after(0, lambda: self.log_message(f"[System] Connected to {self.node.address}"))
+        self.root.after(0, lambda: self.update_status("Secure (AES-256) \U0001F512", "green"))
+        self.root.after(0, lambda: self.log_message(f"[System] Securely connected to {self.node.address}"))
 
     def on_error(self, err_msg):
         self.root.after(0, lambda: self.reset_buttons())
+        self.root.after(0, lambda: self.update_status("Disconnected", "red"))
         self.root.after(0, lambda: messagebox.showerror("Connection Error", err_msg))
         self.root.after(0, lambda: self.log_message(f"[System] Error: {err_msg}"))
         
     def on_disconnected(self):
         self.root.after(0, lambda: self.reset_buttons())
+        self.root.after(0, lambda: self.update_status("Disconnected", "red"))
         self.root.after(0, lambda: self.log_message("[System] Connection Lost"))
 
     def on_message_received(self, message):
